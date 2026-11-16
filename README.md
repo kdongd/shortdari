@@ -204,6 +204,162 @@ https://www.naver.com
 
 사용자가 직접 원본 URL을 다시 요청할 필요 없이 브라우저가 리다이렉트 응답을 처리합니다.
 
+
+## 📡 REST API 명세
+
+Shortdari는 Spring Boot 기반 REST API를 통해 URL 생성, 조회, 수정, 삭제 및 리다이렉트 기능을 제공합니다.
+
+### 🔗 API 목록
+
+| Method | Endpoint | 기능 |
+|---|---|---|
+| POST | `/api/urls` | 단축 URL 및 네이밍 URL 생성 |
+| GET | `/api/urls` | 등록된 URL 전체 조회 |
+| GET | `/api/urls/{id}` | URL 단건 조회 |
+| PATCH | `/api/urls/{id}/name` | URL 표시 이름 수정 |
+| DELETE | `/api/urls/{id}` | URL 삭제 |
+| GET | `/r/{shortCode}` | 원본 URL로 리다이렉트 |
+
+※ 위 경로는 API 구성 예시이며, 실제 Controller의 매핑과 대조하여 확정해야 합니다.
+
+---
+
+### 1. URL 생성 API
+
+**POST `/api/urls`**
+
+사용자가 입력한 원본 URL을 검증하고 8자리 단축 코드를 생성하여 MySQL에 저장합니다.
+
+**요청 예시 (SHORT)**
+
+```json
+{
+  "originalUrl": "https://www.naver.com",
+  "urlMode": "SHORT"
+}
+```
+
+**요청 예시 (NAMING)**
+
+```json
+{
+  "originalUrl": "https://www.naver.com",
+  "displayName": "네이버",
+  "urlMode": "NAMING"
+}
+```
+
+**처리 과정**
+
+1. URL 형식 검증 및 정규화
+2. SecureRandom 기반 8자리 코드 생성
+3. 표시 이름 중복 여부 확인
+4. Repository를 통한 MySQL 저장
+5. 생성된 URL 정보 반환
+
+---
+
+### 2. URL 전체 조회 API
+
+**GET `/api/urls`**
+
+MySQL에 저장된 단축 URL 목록을 조회합니다.
+
+- 원본 URL 확인
+- 단축 코드 확인
+- 표시 이름 확인
+- URL 생성 방식 확인
+- 생성 일시 확인
+
+프론트엔드의 링크 목록과 이름 검색 기능에서 활용합니다.
+
+---
+
+### 3. URL 단건 조회 API
+
+**GET `/api/urls/{id}`**
+
+등록된 URL의 고유 ID를 기준으로 데이터를 조회합니다.
+
+존재하지 않는 ID를 요청하면 `ShortUrlNotFoundException`을 발생시킵니다.
+
+---
+
+### 4. URL 이름 수정 API
+
+**PATCH `/api/urls/{id}/name`**
+
+등록된 URL의 표시 이름을 수정합니다.
+
+**요청 예시**
+
+```json
+{
+  "displayName": "네이버 메인"
+}
+```
+
+- 표시 이름 중복 검증
+- 수정된 이름 저장
+- 변경된 URL 정보 반환
+
+---
+
+### 5. URL 삭제 API
+
+**DELETE `/api/urls/{id}`**
+
+등록된 URL 데이터를 삭제합니다.
+
+삭제 이후 해당 단축 코드를 조회하면 원본 URL을 찾을 수 없습니다.
+
+---
+
+### 6. URL 리다이렉트 API
+
+**GET `/r/{shortCode}`**
+
+단축 코드를 이용하여 원본 URL로 이동합니다.
+
+**요청 예시**
+
+```text
+GET http://localhost:8080/r/aB3xK912
+```
+
+**처리 흐름**
+
+```text
+단축 URL 접속
+    ↓
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+MySQL에서 원본 URL 조회
+    ↓
+HTTP Redirect 응답
+    ↓
+브라우저에서 원본 URL로 이동
+```
+
+---
+
+### 🛡️ API 예외 처리
+
+| 예외 상황 | 처리 |
+|---|---|
+| 잘못된 URL 형식 | InvalidUrlException |
+| 중복 표시 이름 | DuplicateDisplayNameException |
+| 존재하지 않는 URL | ShortUrlNotFoundException |
+| 단축 코드 생성 실패 | ShortCodeGenerationException |
+| 단축 코드 중복 저장 | MySQL UNIQUE 제약조건 |
+
+각 예외 클래스에 `@ResponseStatus`를 적용하여 HTTP 상태 코드를 관리합니다.
+
+
 ### 📚 5. 링크 목록 관리
 
 등록한 URL을 목록으로 확인하고 관리할 수 있습니다.
